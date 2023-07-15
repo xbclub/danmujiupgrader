@@ -22,7 +22,7 @@ type UpdateResponse struct {
 var Version string
 
 func main() {
-	log.Printf("")
+	log.Printf("更新程序版本：%v", Version)
 	log.Println("正在查询版本信息")
 	resp, err := http.Get("https://danmuji.neuedu.work/getUpdate")
 	if err != nil {
