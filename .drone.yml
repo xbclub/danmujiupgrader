@@ -1,0 +1,57 @@
+kind: pipeline
+type: kubernetes
+name: default
+platform:
+  os: linux
+  arch: arm64
+steps:
+  - name: prebuild
+    image: golang:1.20.2-alpine
+    volumes:
+      - name: cache
+        path: /gobuild
+    environment:
+      GOCACHE: /gobuild/gocache
+      GOPATH: /gobuild/gopath
+    commands:
+      - go mod tidy
+    when:
+      event:
+        - tag
+
+  - name: build-windows-amd64
+    image: golang:1.20.2-alpine
+    volumes:
+      - name: cache
+        path: /gobuild
+    environment:
+      GOOS: windows
+      GOARCH: amd64
+      GOCACHE: /gobuild/gocache
+      GOPATH: /gobuild/gopath
+    commands:
+      - export outputpath=./dist
+      - apk add --no-cache git gcc musl-dev
+      - mkdir -p $outputpath
+      - go build -v -o $outputpath/upgrader.exe -ldflags "-X main.Version=${DRONE_TAG}" --trimpath
+    when:
+      event:
+        - tag
+    depends_on:
+      - prebuild
+  - name: github-release
+    image: plugins/github-release
+    settings:
+      api_key:
+        from_secret: GITHUB_TOKEN
+      files: cli/dist/*
+    depends_on:
+      - build-windows-amd64
+    when:
+      event:
+        - tag
+volumes:
+  - name: cache
+    claim:
+      name: robotbuild-cache
+      read_only: false # <true|false>

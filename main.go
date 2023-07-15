@@ -4,8 +4,8 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -19,38 +19,47 @@ type UpdateResponse struct {
 	ChangeLog string `json:"changeLog"`
 }
 
+var Version string
+
 func main() {
-	resp, err := http.Get("https://update.danmuji.me/getUpdate")
+	log.Printf("")
+	log.Println("正在查询版本信息")
+	resp, err := http.Get("https://danmuji.neuedu.work/getUpdate")
 	if err != nil {
-		fmt.Println("Error:", err)
+		log.Println("连接版本服务器错误")
+		log.Println("Error:", err)
 		return
 	}
 	defer resp.Body.Close()
-
 	if resp.StatusCode == http.StatusOK {
 		updateResp := &UpdateResponse{}
 		err := json.NewDecoder(resp.Body).Decode(updateResp)
 		if err != nil {
-			fmt.Println("Error decoding JSON response:", err)
+			log.Println("版本信息解析失败")
+			log.Println("Error decoding JSON response:", err)
 			return
 		}
-
+		log.Println("正在更新弹幕机")
 		err = downloadAndExtract(updateResp.Link)
 		if err != nil {
-			fmt.Println("Error:", err)
+			log.Println("更新弹幕机失败")
+			log.Println("Error:", err)
 			return
 		}
-
-		fmt.Println("Download and extraction successful!")
+		log.Println("弹幕机更新完成即将启动")
+		cmd := exec.Command("cmd.exe", "/C", "start", "GUI-BilibiliDanmuRobot.exe")
+		if err := cmd.Start(); err != nil {
+			log.Println("启动弹幕机失败，请手动启动")
+			log.Println(err)
+		}
+		log.Println("更新完成即将退出更新程序")
 	} else {
-		fmt.Printf("Request failed with status code: %d\n", resp.StatusCode)
+		log.Println("更新服务器链接失败")
+		log.Printf("Request failed with status code: %d\n", resp.StatusCode)
 	}
-	cmd := exec.Command("cmd.exe", "/C", "start", "GUI-BilibiliDanmuRobot.exe")
-	if err := cmd.Start(); err != nil {
-		fmt.Println(err)
-	}
-	time.Sleep(5 * time.Second)
-	fmt.Println("upgrade exit")
+
+	time.Sleep(10 * time.Second)
+	log.Println("upgrade exit")
 	os.Exit(0)
 }
 
@@ -62,28 +71,15 @@ func downloadAndExtract(link string) error {
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
+		log.Println("弹幕机下载失败")
 		return err
 	}
-	//zipFile, err := os.Create("temp.zip")
-	//if err != nil {
-	//	return err
-	//}
-	//defer func() {
-	//	zipFile.Close()
-	//	os.Remove("temp.zip")
-	//}()
-	//
-	//_, err = io.Copy(bytes.NewReader(body), resp.Body)
-	//if err != nil {
-	//	return err
-	//}
-
+	log.Println("弹幕机下载成功，正在解压")
 	zipReader, err := zip.NewReader(bytes.NewReader(body), int64(len(body)))
 	if err != nil {
 		return err
 	}
-	//defer zipReader.Close()
-
+	log.Println("解压成功，正在更新软件")
 	for _, file := range zipReader.File {
 		if filepath.Base(file.Name) == "GUI-BilibiliDanmuRobot.exe" {
 			zippedFile, err := file.Open()
@@ -102,7 +98,6 @@ func downloadAndExtract(link string) error {
 			if err != nil {
 				return err
 			}
-
 			break // 只提取第一个匹配的文件
 		}
 	}
