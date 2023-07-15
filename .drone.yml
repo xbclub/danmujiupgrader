@@ -44,7 +44,7 @@ steps:
     settings:
       api_key:
         from_secret: GITHUB_TOKEN
-      files: cli/dist/*
+      files: ./dist/*
     depends_on:
       - build-windows-amd64
     when:
